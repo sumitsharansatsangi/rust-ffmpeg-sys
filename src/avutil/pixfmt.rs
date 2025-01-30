@@ -1,4 +1,4 @@
-use AVPixelFormat;
+use crate::AVPixelFormat;
 use AVPixelFormat::*;
 
 #[cfg(target_endian = "little")]

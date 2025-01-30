@@ -191,6 +191,8 @@ fn get_ffmpet_target_os() -> String {
     let cargo_target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     match cargo_target_os.as_str() {
         "ios" => "darwin".to_string(),
+        "windows" => "mingw32".to_owned(), // assumes -gnu target, because -msvc is not usable for cross-compile anyway
+        "macos" => "darwin".to_owned(),
         _ => cargo_target_os,
     }
 }
@@ -201,7 +203,8 @@ fn build() -> io::Result<()> {
     // Command's path is not relative to command's current_dir
     let configure_path = source_dir.join("configure");
     assert!(configure_path.exists());
-    let mut configure = Command::new(&configure_path);
+    let mut configure = Command::new("bash");
+    configure.arg(&configure_path);
     configure.current_dir(&source_dir);
 
     configure.arg(format!("--prefix={}", search().to_string_lossy()));
@@ -668,6 +671,7 @@ fn link_to_libraries(statik: bool) {
 }
 
 fn main() {
+    println!("cargo::rerun-if-env-changed=FFMPEG_DIR");
     let statik = env::var("CARGO_FEATURE_STATIC").is_ok();
     let ffmpeg_major_version: u32 = env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap();
 
@@ -783,6 +787,8 @@ fn main() {
             // avutil depdendencies
             println!("cargo:rustc-link-lib=bcrypt");
             println!("cargo:rustc-link-lib=user32");
+            println!("cargo:rustc-link-lib=strmiids");
+            println!("cargo:rustc-link-lib=mfuuid");
         }
 
         paths
@@ -820,6 +826,14 @@ fn main() {
             .unwrap()
             .include_paths
     };
+
+    // include_paths.extend(
+    //     pkg_config::Config::new()
+    //         .statik(statik)
+    //         .probe("cuda")
+    //         .unwrap()
+    //         .include_paths
+    // );
 
     if statik && cfg!(target_os = "macos") {
         let frameworks = vec![
@@ -1315,6 +1329,7 @@ fn main() {
         .header(search_include(&include_paths, "libavutil/hash.h"))
         .header(search_include(&include_paths, "libavutil/hmac.h"))
         .header(search_include(&include_paths, "libavutil/hwcontext.h"))
+        // .header(search_include(&include_paths, "libavutil/hwcontext_cuda.h"))
         .header(search_include(&include_paths, "libavutil/imgutils.h"))
         .header(search_include(&include_paths, "libavutil/lfg.h"))
         .header(search_include(&include_paths, "libavutil/log.h"))
